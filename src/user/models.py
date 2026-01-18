@@ -13,6 +13,7 @@ from src.user.utils import utcnow
 
 if TYPE_CHECKING:
     from src.role.models import RoleModel
+    from src.auth.grafana_access.models import GrafanaAccessModel
 
 
 class UserModel(AsyncAttrs, Base):
