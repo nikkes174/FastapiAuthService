@@ -1,4 +1,3 @@
-
 import pytest
 
 from src.auth.grafana_access.models import GrafanaAccessModel

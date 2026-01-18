@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
@@ -10,6 +11,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.databse import Base
 from src.user.utils import utcnow
+
+if TYPE_CHECKING:
+    from src.user.models import UserModel
 
 
 class GrafanaAccessModel(AsyncAttrs, Base):
