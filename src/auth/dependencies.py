@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 
 from src.auth.jwt_service import ActionWithToken
@@ -6,9 +6,18 @@ from src.auth.jwt_service import ActionWithToken
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 
-def get_current_user(
-    token: str = Depends(oauth2_scheme),
-) -> dict:
+from fastapi import Request
+
+
+def get_current_user(request: Request) -> dict:
+    token = request.cookies.get("access_token")
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+        )
+
     try:
         payload = ActionWithToken.decode_access_token(token)
     except ValueError:
@@ -27,6 +36,8 @@ def get_current_user(
         )
 
     return {
-        "user_id": user_id,
+        "id": user_id,
         "roles": roles,
+        "email": payload.get("email"),  # если есть
+        "user_name": payload.get("user_name"),  # если есть
     }

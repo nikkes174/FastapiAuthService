@@ -1,9 +1,8 @@
 from datetime import datetime
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from src.user.schemas import UserRead

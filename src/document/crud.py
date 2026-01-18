@@ -58,3 +58,16 @@ class DocumentCrud:
     ) -> None:
         await self.session.delete(document)
         await self.session.commit()
+
+    async def get_by_id_and_user_id(
+        self,
+        document_id: UUID,
+        user_id: UUID,
+    ) -> DocumentModel | None:
+        result = await self.session.execute(
+            select(DocumentModel).where(
+                DocumentModel.id == document_id,
+                DocumentModel.user_id == user_id,
+            )
+        )
+        return result.scalar_one_or_none()

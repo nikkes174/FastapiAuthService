@@ -37,7 +37,7 @@ async def delete_document(
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    current_user_id = UUID(current_user["user_id"])
+    current_user_id = current_user["id"]
 
     if (
         "admin" not in current_user["roles"]
@@ -72,18 +72,23 @@ async def update_document(
     current_user=Depends(get_current_user),
 ):
     document_crud = DocumentCrud(session)
-    document = await document_crud.get_by_id(document_id)
 
-    if not document:
-        raise HTTPException(status_code=404, detail="Document not found")
+    is_admin = "admin" in current_user["roles"]
 
-    if "admin" not in current_user["roles"] and current_user["user_id"] != str(
-        document.user_id
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied",
+    if not is_admin:
+        document = await document_crud.get_by_id_and_user_id(
+            document_id=document_id,
+            user_id=current_user["id"],
         )
+        if not document:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Access denied"
+            )
+
+    else:
+        document = await document_crud.get_by_id(document_id)
+        if not document:
+            raise HTTPException(status_code=404, detail="Document not found")
 
     updated_document = await document_crud.update(document, data)
     return updated_document
@@ -96,8 +101,10 @@ async def update_document(
     summary="Создать документ",
     description="Создаёт документ, принадлежащий текущему пользователю",
     responses={
-        201: {"description": "Документ создан"},
+        200: {"description": "Документ успешно обновлён"},
         401: {"description": "Неавторизован"},
+        403: {"description": "Недостаточно прав"},
+        404: {"description": "Документ не найден"},
     },
 )
 async def create_document(
@@ -107,7 +114,7 @@ async def create_document(
 ):
     document_crud = DocumentCrud(session)
 
-    user_id = UUID(current_user["user_id"])
+    user_id = current_user["id"]
 
     document = await document_crud.create(
         title=data.title,

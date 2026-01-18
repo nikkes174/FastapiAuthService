@@ -32,15 +32,12 @@ async def create_user(
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User already exists",
+            detail="Пользователь уже существует",
         )
 
     user = await user_crud.create_user(data)
 
     return UserResponse.model_validate(user)
-
-
-from uuid import UUID
 
 
 @router.get(
@@ -52,13 +49,7 @@ async def profile(
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ):
-    try:
-        user_id = UUID(current_user["user_id"])
-    except (KeyError, ValueError):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-        )
+    user_id = current_user["id"]
 
     user = await session.get(UserModel, user_id)
     if not user:

@@ -1,11 +1,42 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.auth.service import RoleService
+from src.auth.dependencies import get_current_user
+from src.databse import get_db
+from src.depends import admin_required, staff_required
+from src.role.crud import RoleCrud
+from src.user.crud import UserCrud
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
-admin_required = RoleService.require_role("admin")
-staff_required = RoleService.require_any_role(["admin", "moderator"])
+
+@router.post("/make-admin")
+async def make_admin(
+    email: str,
+    current_user=Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    if "admin" not in current_user["roles"]:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    user_crud = UserCrud(session)
+    role_crud = RoleCrud(session)
+
+    user = await user_crud.get_by_email(email)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    role = await role_crud.get_by_name("admin")
+    if not role:
+        raise HTTPException(status_code=500, detail="Admin role missing")
+
+    if role in user.roles:
+        return {"status": "already admin"}
+
+    user.roles.append(role)
+    await session.commit()
+
+    return {"status": "ok", "email": email}
 
 
 @router.get(

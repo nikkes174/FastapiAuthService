@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import String
 from sqlalchemy.dialects.postgresql import UUID
@@ -9,8 +10,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.databse import Base
 from src.document.models import DocumentModel
 from src.user.utils import utcnow
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from src.role.models import RoleModel
@@ -64,4 +63,11 @@ class UserModel(AsyncAttrs, Base):
 
     roles: Mapped[list["RoleModel"]] = relationship(
         secondary="user_roles", back_populates="users", lazy="selectin"
+    )
+
+    grafana_access: Mapped["GrafanaAccessModel | None"] = relationship(
+        "GrafanaAccessModel",
+        back_populates="user",
+        uselist=False,
+        passive_deletes=True,
     )

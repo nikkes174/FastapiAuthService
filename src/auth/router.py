@@ -1,11 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.auth.dependencies import get_current_user
+from src.auth.grafana_access.crud import GrafanaAccessCrud
 from src.auth.jwt_service import ActionWithToken
-from src.auth.schemas import TokenResponse
-from src.auth.security import OAuth2PasswordRequestFormFixed, PasswordService
+from src.auth.security import PasswordService
 from src.auth.service import AuthService
 from src.databse import get_db
+from src.depends import admin_required
 from src.role.crud import RoleCrud
 from src.user.crud import UserCrud
 
@@ -26,9 +30,14 @@ def get_auth_service(
     )
 
 
-@router.post("/login", response_model=TokenResponse)
+from fastapi import Depends
+from fastapi.security import OAuth2PasswordRequestForm
+
+
+@router.post("/login")
 async def login(
-    form_data: OAuth2PasswordRequestFormFixed = Depends(),
+    response: Response,
+    form_data: OAuth2PasswordRequestForm = Depends(),
     auth_service: AuthService = Depends(get_auth_service),
 ):
     try:
@@ -42,8 +51,58 @@ async def login(
             detail="Неправильный email или пароль",
         )
 
-    return TokenResponse(
-        access_token=access_token,
-        token_type="bearer",
-        roles=roles,
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        samesite="lax",
     )
+
+    return {
+        "detail": "Logged in",
+        "roles": roles,
+    }
+
+
+@router.get("/grafana")
+async def grafana_auth(
+    user=Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    roles = user["roles"]
+
+    if "admin" in roles:
+        allowed = True
+    else:
+        crud = GrafanaAccessCrud(session)
+        access = await crud.get(user_id=user["id"])
+        allowed = access is not None and access.status == "approved"
+
+    if not allowed:
+        raise HTTPException(status_code=403)
+
+    return Response(
+        headers={
+            "X-WEBAUTH-USER": user["email"],
+        }
+    )
+
+
+@router.post("/grafana/request-access")
+async def request_grafana_access(
+    user=Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    crud = GrafanaAccessCrud(session)
+    await crud.request(user_id=user["id"])
+    return {"status": "pending"}
+
+
+@router.post("/admin/grafana/approve")
+async def approve_grafana(
+    user_id: UUID,
+    current_user=Depends(admin_required),
+    session: AsyncSession = Depends(get_db),
+):
+    await GrafanaAccessCrud(session).approve(user_id)
+    return {"status": "approved"}
